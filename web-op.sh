@@ -1,14 +1,26 @@
 #!/bin/sh
 
-errMessage="Use format:\nweb-op [-s] SCALE_FACTOR [-o] OUTPUT_DIRECTORY [FILES...]"
 SCALEFACT=100
-OUTPUTFILE='${fileSTRIPPED}-op.jpg'
-SATURATE=0
+OUTPUTFILE='${fileSTRIPPED}-web.jpg'
+SATURATE=100
+OUTPUT_MD=0
+
+print_err(){
+	>&2 echo "usage: $0 [-s] SCALE_FACTOR [-o] OUTPUT_DIRECTORY [-S] AMT [FILES...]
+
+	-s Scale factor to compress images by
+		ex. $0 -s 50 - will scale a 1000x1800 image to 500x900
+		ex. $0 -s 25 - will scale a 1000x1800 image to 250x450
+
+	-o Write files to an output directory.
+
+	-S Scale image saturation. 100 = 100%, 50 = 50%, 150 = 150%, etc."
+}
 
 check_args(){
 	[ $# -lt 1 ] && {
-		echo -n "invalid Aguments - "
-		echo $errMessage
+		>&2 echo "invalid Aguments - "
+		print_err
 		exit 1
 	};
 }
@@ -25,8 +37,8 @@ for arg in $(seq 4); do
 			shift
 			continue
 		} || {
-			echo -n "Invalid scale factor \"$1\" - "
-			echo $errMessage
+			>&2 echo "Invalid scale factor \"$1\" - "
+			print_err
 			exit 1
 		}
 	};
@@ -35,20 +47,30 @@ for arg in $(seq 4); do
 		shift
 		[ -d $1 ] 2>/dev/null &&{
 			check_args $@
+			OUTPUT_MD=1
 			OUTPUTPATH=$1
 			OUTPUTFILE='${OUTPUTPATH}${fileSTRIPPED}.jpg'
 			shift
 		} || {
-			echo -n "Invalid Path \"$1\" - "
-			echo $errMessage
+			>&2 echo "Invalid Path \"$1\" - "
+			print_err
 			exit 1
 		}
 	};
 
 	[ $1 = "-u" ] && {
 		shift
-		SATURATE=1
-	}
+		[ $1 -eq $1 ] 2>/dev/null &&{
+			check_args $@
+			SATURATE=$1
+			shift
+			continue
+		} || {
+			>&2 echo "Invalid saturation factor \"$1\" - "
+			print_err
+			exit 1
+		}
+	};
 
 done
 
@@ -60,11 +82,16 @@ temp_file="${temp_file}.jpg"
 for file in "$@"; do
 
 	[ -f $file ] && {
-		fileSTRIPPED=$(echo -n "$file" | cut -d'.' -f1)
+		fileSTRIPPED=$(echo -n "$file" | sed 's/\.[^.]*$//')
+		[ "$OUTPUT_MD" -eq 1 ] &&{
+			fileSTRIPPED=$(echo -n "$fileSTRIPPED" | grep -o '[^/]*$')
+		}
+
+
 		eval echo "converting $file to $OUTPUTFILE at $SCALEFACT% scale"
 		convert $file -resize "$SCALEFACT%" "$temp_file"
-		[ $SATURATE -eq 1 ] && {
-			convert "$temp_file" -modulate 100,125,100 "$temp_file"
+		[ $SATURATE -ne 100 ] && {
+			convert "$temp_file" -modulate 100,"$SATURATE",100 "$temp_file"
 		}
 		eval jpegtran -copy none -optimize -progressive -outfile "$OUTPUTFILE" "$temp_file"
 	} || {
