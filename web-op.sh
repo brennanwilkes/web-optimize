@@ -2,6 +2,35 @@
 
 #Script for creating web optimized versions of images by Brennan Wilkes
 
+#Dependency check
+convert --version 2>/dev/null >/dev/null
+[ $? -eq 127 ] && {
+	echo "Please install dependency ImageMagick.
+
+	wget https://imagemagick.org/download/ImageMagick.tar.gz
+	tar xvzf ImageMagick.tar.gz
+	cd ImageMagick-*
+	./configure
+	sudo make install
+	"
+	exit 2
+};
+
+jpegtran -verbose . 2>/dev/null >/dev/null
+[ $? -eq 127 ] && {
+	echo "Please install dependency jpegtran.
+
+	wget http://www.ijg.org/files/jpegsrc.v6b.tar.gz
+	tar xvzf jpegsrc.v6b.tar.gz
+	cd jpeg-*
+	./configure
+	sudo make install
+	"
+	exit 2
+};
+
+
+
 #Set up variables
 scale_fact=100
 output_file='${fileSTRIPPED}-web.jpg'
@@ -141,7 +170,7 @@ for file in "$@"; do
 
 	#Debug info
 	} || {
-		[ quiet_md -eq 0 ] && {
+		[ $quiet_md -eq 0 ] && {
 			echo "invalid image \""$file"\". Skipping..."
 		}
 	};
