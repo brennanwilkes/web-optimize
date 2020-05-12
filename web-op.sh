@@ -3,23 +3,27 @@
 #Script for creating web optimized versions of images by Brennan Wilkes
 
 #Set up variables
-SCALEFACT=100
-OUTPUTFILE='${fileSTRIPPED}-web.jpg'
-SATURATE=100
-OUTPUT_MD=0
-SCRIPTNAME=$( echo -n "$0" | grep -o '[^/]*$' )
+scale_fact=100
+output_file='${fileSTRIPPED}-web.jpg'
+saturate=100
+output_md=0
+quiet_md=0
+
+script_name=$( echo -n "$0" | grep -o '[^/]*$' )
 
 #Usage message
 print_err(){
-	>&2 echo "usage: "$SCRIPTNAME" [-s] SCALE_FACTOR [-o] OUTPUT_DIRECTORY [-S] AMT [FILES...]
+	>&2 echo "usage: "$script_name" [FLAGS] [FILES...]
 
-	-s Scale factor to compress images by
-		ex. "$SCRIPTNAME" -s 50 - will scale a 1000x1800 image to 500x900
-		ex. "$SCRIPTNAME" -s 25 - will scale a 1000x1800 image to 250x450
+	-s SCALE_FACTOR - Scale factor to compress images by
+		ex. "$script_name" -s 50 - will scale a 1000x1800 image to 500x900
+		ex. "$script_name" -s 25 - will scale a 1000x1800 image to 250x450
 
-	-o Write files to an output directory.
+	-o PATH - write files to an output directory.
 
-	-S Scale image saturation. 100 = 100%, 50 = 50%, 150 = 150%, etc."
+	-S SATURATION_FACTOR - Scale image saturation. 100 = 100%, 50 = 50%, 150 = 150%, etc.
+
+	-q - Quiet mode"
 }
 
 #Function to check valid arguments
@@ -32,7 +36,7 @@ check_args(){
 }
 
 #Agument parsing loop
-for arg in $(seq 4); do
+for arg in $(seq 5); do
 
 	#check arguments
 	check_args "$@"
@@ -46,7 +50,7 @@ for arg in $(seq 4); do
 			check_args "$@"
 
 			#set scale factor
-			SCALEFACT="$1"
+			scale_fact="$1"
 			shift
 			continue
 		} || {
@@ -63,9 +67,9 @@ for arg in $(seq 4); do
 			check_args "$@"
 
 			#set output variables
-			OUTPUT_MD=1
+			output_md=1
 			OUTPUTPATH="$1"
-			OUTPUTFILE='${OUTPUTPATH}${fileSTRIPPED}.jpg'
+			output_file='${OUTPUTPATH}${fileSTRIPPED}.jpg'
 			shift
 		} || {
 			>&2 echo "Invalid Path \""$1"\""
@@ -81,7 +85,7 @@ for arg in $(seq 4); do
 			check_args "$@"
 
 			#Saturation factor
-			SATURATE="$1"
+			saturate="$1"
 			shift
 			continue
 		} || {
@@ -89,6 +93,12 @@ for arg in $(seq 4); do
 			print_err
 			exit 1
 		}
+	};
+
+	#Quiet mode
+	[ "$1" = "-q" ] && {
+		shift
+		quiet_md=1
 	};
 done
 
@@ -109,27 +119,31 @@ for file in "$@"; do
 		fileSTRIPPED=$(echo -n "$file" | sed 's/\.[^.]*$//')
 
 		#if custom output directory, strip original path
-		[ "$OUTPUT_MD" -eq 1 ] &&{
+		[ "$output_md" -eq 1 ] && {
 			fileSTRIPPED=$(echo -n "$fileSTRIPPED" | grep -o '[^/]*$')
 		}
 
 		#Info
-		eval echo "converting $file to $OUTPUTFILE at $SCALEFACT% scale and $SATURATE% saturation"
+		[ "$quiet_md" -eq 0 ] && {
+			eval echo "converting $file to $output_file at $scale_fact% scale and $saturate% saturation"
+		}
 
 		#Scale image using ImageMagick
-		convert "$file" -resize "$SCALEFACT%" "$temp_file"
+		convert "$file" -resize "$scale_fact%" "$temp_file"
 
-		#Saturate image using ImageMagick
-		[ "$SATURATE" -ne 100 ] && {
-			convert "$temp_file" -modulate 100,"$SATURATE",100 "$temp_file"
+		#saturate image using ImageMagick
+		[ "$saturate" -ne 100 ] && {
+			convert "$temp_file" -modulate 100,"$saturate",100 "$temp_file"
 		}
 
 		#Convert to progressive jpg using jpegtran
-		eval jpegtran -copy none -optimize -progressive -outfile "$OUTPUTFILE" "$temp_file"
+		eval jpegtran -copy none -optimize -progressive -outfile "$output_file" "$temp_file"
 
 	#Debug info
 	} || {
-		echo "invalid image \""$file"\". Skipping..."
+		[ quiet_md -eq 0 ] && {
+			echo "invalid image \""$file"\". Skipping..."
+		}
 	};
 done
 
