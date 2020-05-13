@@ -107,6 +107,12 @@ for arg in $(seq 5); do
 		}
 	};
 
+	#Help
+	[ "$1" = "--help" ] && {
+		print_err
+		exit 1
+	};
+
 	#Saturation argument
 	[ "$1" = "-S" ] && {
 		shift
