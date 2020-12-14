@@ -37,6 +37,7 @@ output_file='${fileSTRIPPED}-web.jpg'
 saturate=100
 output_md=0
 quiet_md=0
+crop_to_square=0
 
 script_name=$( echo -n "$0" | grep -o '[^/]*$' )
 
@@ -130,6 +131,12 @@ for arg in $(seq 5); do
 		}
 	};
 
+	#Crop to square
+	[ "$1" = "-c" ] && {
+		shift
+		crop_to_square=1
+	};
+
 	#Quiet mode
 	[ "$1" = "-q" ] && {
 		shift
@@ -150,6 +157,15 @@ for file in "$@"; do
 	#Ensure that file exists
 	[ -f "$file" ] && {
 
+		#Calculate minimum dimension
+		[ "$crop_to_square" -eq 1 ] && {
+			fileDims=$( file "$file" | grep -Eo '[0-9]+ ?x ?[0-9]+' )
+			fileX=$( echo "$fileDims" | grep -Eo '^[0-9]+' )
+			fileY=$( echo "$fileDims" | grep -Eo '[0-9]+$' )
+			fileMin=$( echo "$fileX" "$fileY" | tr ' ' '\n' | sort -n | head -n1 )
+			fileCrop=$( echo "${fileMin}x${fileMin}" )
+		}
+
 		#Strip away file extension
 		fileSTRIPPED=$(echo -n "$file" | sed 's/\.[^.]*$//')
 
@@ -160,7 +176,11 @@ for file in "$@"; do
 
 		#Info
 		[ "$quiet_md" -eq 0 ] && {
-			eval echo "converting $file to $output_file at $scale_fact% scale and $saturate% saturation"
+			[ "$crop_to_square" ] && {
+				eval echo "converting $file to $output_file at $scale_fact% scale, cropped to $fileCrop and $saturate% saturation"
+			} || {
+				eval echo "converting $file to $output_file at $scale_fact% scale and $saturate% saturation"
+			}
 		}
 
 		#Scale image using ImageMagick
@@ -171,8 +191,15 @@ for file in "$@"; do
 			convert "$temp_file" -modulate 100,"$saturate",100 "$temp_file"
 		}
 
-		#Convert to progressive jpg using jpegtran
-		eval jpegtran -copy none -optimize -progressive -outfile "$output_file" "$temp_file"
+		[ "$crop_to_square" ] && {
+
+			#Convert to progressive jpg using jpegtran WITH cropping
+			eval jpegtran -crop "$fileCrop" -copy none -optimize -progressive -outfile "$output_file" "$temp_file"
+		} || {
+
+			#Convert to progressive jpg using jpegtran
+			eval jpegtran -copy none -optimize -progressive -outfile "$output_file" "$temp_file"
+		}
 
 	#Debug info
 	} || {
